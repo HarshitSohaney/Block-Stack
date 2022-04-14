@@ -11,5 +11,4 @@ Block Stack is a game where your goal is to stack the maximum number of blocks o
 
 ## Project Demo 
 
-https://user-images.githubusercontent.com/52717128/163480008-4244cd0d-d990-407f-bff3-aba796503ef5.mov
-
+![ezgif com-gif-maker](https://user-images.githubusercontent.com/52717128/163480458-08ffc5a5-b4c6-4f61-bc8f-ee330c3237ff.gif)
