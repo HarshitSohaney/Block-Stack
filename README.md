@@ -22,7 +22,7 @@ The game is implemented using lowlevel C and can be played on a VGA display.
 
 <img width="962" alt="Screen Shot 2022-04-14 at 5 35 59 PM" src="https://user-images.githubusercontent.com/52717128/163480761-b429fd9b-bb0b-494b-8760-234f0b4c1e9a.png">
 
-3. Load in the c file named "cpulater_project" stored in the foloder src
+3. Load in the c file named "cpulater_project" stored in the folder src
 4. Press Compile, Load and Continue to run the game 
 
 ### Option 2: On the DE1-SoC FPGA Board
