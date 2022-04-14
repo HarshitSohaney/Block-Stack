@@ -1,3 +1,8 @@
+/* Main game file for Block Stack game	
+   Created by Harshit Sohaney & Yunjia Hao
+   using the ARMv7 processor on the DE1-SoC FPGA board 
+*/
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,19 +20,24 @@
 #define RESOLUTION_Y 240
 
 /* Constants for animation */
-int BOX_LEN = 40;
 #define BOX_H 40
 #define MAX_BOXES 5
 #define FALSE 0
 #define TRUE 1
 
-volatile int pixel_buffer_start; // global variable
+/* set global variables */
+volatile int pixel_buffer_start; 
 const int main_background[240][320];
 const int background2[240][320];
 const int gameOver_background[240][320];
 const int brick[40][40];
 const int home_page[240][320];
+int num_boxes = 1;
+int frequency = 60;
+int firstRound = 1; 
+int BOX_LEN = 40;
 
+/* Set global arrays for score display */
 int zero[20][20];
 int ones[20][20];
 int two[20][20];
@@ -41,31 +51,29 @@ int nine[20][20];
 int scoreboard[17][50];
 int scores[2] = {0};
 
-int num_boxes = 1;
-void clear_screen();
-void wait_for_vsync();
-void draw_boxes(int x1, int x2, int y1, int erase);
-void display_game_over();
-void display_home();
-int frequency = 60;
-int firstRound = 1; 
+void start_game();
 	
 int main(void){
-	int amount_cut = 0;
-	volatile int * pixel_ctrl_ptr = (int *)0xFF203020;
-  	volatile int * ps2_ptr = (int *)0xFF200100;
+	
+	volatile int * pixel_ctrl_ptr = (int *)0xFF203020; // VGA address
+  	volatile int * ps2_ptr = (int *)0xFF200100; // PS2 Keyboard address
+	
+	/* set local variables */
 	int boxThreshold = 2;
 	int ps2Input, ps2Valid, ps2Key, done = 0;
-
+	int amount_cut = 0;
+	int i = 0;
+	int last_line = RESOLUTION_Y - BOX_H;
+	bool secondFirstRound = false;
+	int start = 0;
+	
     // Declare variables
 	int x_pos[100], x_pos2[MAX_BOXES] = {0}, y_pos[100]= {0};
 	int y_old[MAX_BOXES] = {0}, y_old2[MAX_BOXES] = {0}; 
 	int x_old[MAX_BOXES] = {0}, x_old2[MAX_BOXES] = {0};
-	//srand(time(NULL)); 
 
 	/* set front pixel buffer to start of FPGA On-chip memory */
-	*(pixel_ctrl_ptr + 1) = 0xC8000000; // first store the address in the
-	// back buffer
+	*(pixel_ctrl_ptr + 1) = 0xC8000000; // first store the address in the back buffer
 	/* now, swap the front/back buffers, to set the front buffer location */
 	wait_for_vsync();
 	/* initialize a pointer to the pixel buffer, used by drawing functions */
@@ -74,40 +82,38 @@ int main(void){
 	/* set back pixel buffer to start of SDRAM memory */
 	*(pixel_ctrl_ptr + 1) = 0xC0000000;
 	pixel_buffer_start = *(pixel_ctrl_ptr + 1); // we draw on the back buffer
+	
 	display_home();
 	
-	int i = 0;
-	int last_line = RESOLUTION_Y - BOX_H;
-	bool secondFirstRound = false;
-	int start = 0;
-	do{
-		ps2Input = *ps2_ptr;
-		ps2Key = ps2Input & 0xFF;
-	}while(ps2Key != 0x29);
-
+	start_game();
+	
+	/* set VGA buffers */
 	wait_for_vsync();
 	pixel_buffer_start = *pixel_ctrl_ptr;
 	clear_screen(); 
+	
 	/* set back pixel buffer to start of SDRAM memory */
 	*(pixel_ctrl_ptr + 1) = 0xC0000000;
 	pixel_buffer_start = *(pixel_ctrl_ptr + 1); // we draw on the back buffer
     clear_screen();
+	
 	bool firstIt = true;
 	int score = 0; 
+	
 	while(!done){
-		//draws falling box 
+		//Set initial position of boxes for first round
 		if(i==0)
 		   x_pos[0] = rand() % (RESOLUTION_X - BOX_LEN);
 		else if(firstIt)
 			x_pos[i] = rand() % (x_pos[i-1] + BOX_LEN + 75 + 1 - (x_pos[i-1] - 75)) +  x_pos[i-1] - 75 ;
 		
-	  do{
+		do{
 		//erase box drawn at last iteration
-		   for(int j = i; j < num_boxes + i; j++) {
+			for(int j = i; j < num_boxes + i; j++) {
 				draw_boxes(x_pos[j], x_pos[j] + BOX_LEN, y_old2[j], TRUE);
 				draw_boxes(x_old2[j], x_old2[j] + BOX_LEN, y_old2[j], TRUE);
 				draw_boxes(x_old[j], x_old[j] + BOX_LEN, y_old[j], TRUE);
-		   }
+			}
 		//draw box
 		 for(int j = i; j < num_boxes + i; j++)
 			 if(y_pos[j-1] > y_pos[j-2] - frequency)
@@ -118,21 +124,20 @@ int main(void){
 			y_old2[j] = y_old[j];
 			y_old[j] = y_pos[j];	  
 
+			/* read ps2 keyboard input */
 			ps2Input = *ps2_ptr;
 			ps2Key = ps2Input & 0xFF;
 
 			if(ps2Input & 0x8000 == 0x8000) { // Check 15th bit for validity
 				x_old2[j] = x_old[j];
 				x_old[j] = x_pos[j];
-				//x_pos2[i] = x_pos[i] + BOX_LEN;
+
 				if (ps2Key == 0x6B && x_pos[j] - 1 > 0) {  // Left Arrow
 						  x_pos[j] = x_pos[j] - 2;
-							ps2Key = 0;
 				}
 
-				if (ps2Key == 0x75 && x_pos[i] + 1 < RESOLUTION_X) {// Right arrow
+				if (ps2Key == 0x75 && x_pos[i] + 1 < RESOLUTION_X) { // Up arrow
 							x_pos[j] = x_pos[j] + 2;
-							ps2Key = 0;
 				}
 				
 				int RVAL = ps2Input & 0xFFFF0000;
@@ -143,10 +148,11 @@ int main(void){
 					
 			}
 
-			//update locations
+			//update y location based on frequency
 			if(y_pos[j-1] > y_pos[j-2] - frequency)
 				y_pos[j] = y_pos[j] + 1;
 		}
+		
 		  wait_for_vsync(); // swap front and back buffers on VGA vertical sync
 		  pixel_buffer_start = *(pixel_ctrl_ptr + 1); // new back buffer
 		  wait_for_vsync();
@@ -156,47 +162,49 @@ int main(void){
 		
 	if(x_pos2[i] == 0)
 		x_pos2[i] = BOX_LEN + x_pos[i]; 
-	if(i > 0){	
-		if(x_pos[i] + BOX_LEN < x_pos[i-1] || x_pos[i] > x_pos2[i-1]){ //out of bounds 
-			done = 1;
+	
+		/* set amount to cut from next box */
+		if(i > 0){	
+			if(x_pos[i] + BOX_LEN < x_pos[i-1] || x_pos[i] > x_pos2[i-1]){ //out of bounds 
+				done = 1;
+			}
+			else if ( (x_pos[i] < x_pos[i-1]) && (x_pos[i] + BOX_LEN > x_pos2[i-1])) {
+				//draw_boxes(x_pos[i], x_pos2[i], y_pos[i], TRUE);
+				x_pos[i] = x_pos[i-1];
+				x_pos2[i] = x_pos2[i-1];
+				amount_cut = x_pos[i-1] - x_pos[i] + x_pos[i] + BOX_LEN - x_pos2[i-1];
+			}
+			else if(x_pos[i] < x_pos[i-1]){
+				//if leftmost x is less than leftmost x of prev iteration
+				//draw_boxes(x_pos[i], x_pos2[i], y_pos[i], TRUE);
+				x_pos2[i] = x_pos[i] + BOX_LEN;
+				x_pos[i] = x_pos[i-1];
+				amount_cut = x_pos[i-1] - x_pos[i];
+			}
+			else if(x_pos[i] + BOX_LEN > x_pos2[i-1]){
+				//if rightmost x is more than rightmost x of prev iteration
+				//draw_boxes(x_pos[i], x_pos2[i], y_pos[i], TRUE);
+				x_pos2[i] = x_pos2[i-1];	
+				amount_cut = x_pos[i] + BOX_LEN -  x_pos2[i-1];			
+				//x_pos is already set at correct location 
+			}
 		}
-		else if ( (x_pos[i] < x_pos[i-1]) && (x_pos[i] + BOX_LEN > x_pos2[i-1])) {
-			//draw_boxes(x_pos[i], x_pos2[i], y_pos[i], TRUE);
-			x_pos[i] = x_pos[i-1];
-			x_pos2[i] = x_pos2[i-1];
-			amount_cut = x_pos[i-1] - x_pos[i] + x_pos[i] + BOX_LEN - x_pos2[i-1];
+		
+		x_old2[i] = x_old[i];
+		x_old[i] = x_pos[i];
+		if(!done){ //redraw box with part cut off 
+			clear_screen();
+			for(int j = 0; j < i+1; j++){
+					draw_boxes(x_pos[j], x_pos2[j], y_pos[j], FALSE);			
+			}
+			wait_for_vsync(); 
+			pixel_buffer_start = *(pixel_ctrl_ptr + 1);
+		  
+			BOX_LEN = BOX_LEN - amount_cut;
+			amount_cut = 0;		
 		}
-		else if(x_pos[i] < x_pos[i-1]){
-			//if leftmost x is less than leftmost x of prev iteration
-			//draw_boxes(x_pos[i], x_pos2[i], y_pos[i], TRUE);
-			x_pos2[i] = x_pos[i] + BOX_LEN;
-			x_pos[i] = x_pos[i-1];
-			amount_cut = x_pos[i-1] - x_pos[i];
-		}
-		else if(x_pos[i] + BOX_LEN > x_pos2[i-1]){
-			//if rightmost x is more than rightmost x of prev iteration
-			//draw_boxes(x_pos[i], x_pos2[i], y_pos[i], TRUE);
-			x_pos2[i] = x_pos2[i-1];	
-			amount_cut = x_pos[i] + BOX_LEN -  x_pos2[i-1];			
-			//x_pos is already set at correct location 
-		}
-	}
-
-	x_old2[i] = x_old[i];
-	x_old[i] = x_pos[i];
-	if(!done){ //redraw box with part cut off 
-		clear_screen();
-		for(int j = 0; j < i+1; j++){
-				draw_boxes(x_pos[j], x_pos2[j], y_pos[j], FALSE);			
-		}
-		wait_for_vsync(); 
-		pixel_buffer_start = *(pixel_ctrl_ptr + 1);
-	  
-		BOX_LEN = BOX_LEN - amount_cut;
-		amount_cut = 0;		
-	}
-	int numBoxes = MAX_BOXES - 2;
-	//redraws boxes and shifts everything up if reaches 50% of display
+		int numBoxes = MAX_BOXES - 2;
+		//redraws boxes and shifts everything up if reaches 50% of display
 		score++;
 		if(score >= 10){
 			scores[1] = score % 10; 
@@ -207,7 +215,7 @@ int main(void){
 			scores[0] = 0; 
 		}
 		for(int num = 0; num < 2; num++){
-			//this prints the number
+			//this prints the score number
 			int shift = RESOLUTION_X - 40 + num * 20; 
 			for(int i = 0; i < 20; i++){
 				for(int j = 0; j < 20; j++){
@@ -235,53 +243,64 @@ int main(void){
 				}
 			}
 		}
-	if(i == numBoxes){
+		/* if we have reached half the screen length */
+		if(i == numBoxes){
 			//reset starting position
-		if(!firstRound) 
-			secondFirstRound = true;
-		 	
-		firstIt = false;
+			if(!firstRound) 
+				secondFirstRound = true;
+				
+			firstIt = false;
+			/* increase frequency based on round number */
 			if(frequency < 100)
 				frequency = frequency + 10;
+				
+			/* set new box display */
+			x_pos[0] = x_pos[numBoxes-1];
+			x_pos2[0] = x_pos2[numBoxes-1];
+			y_pos[0] = RESOLUTION_Y - BOX_H; 
+			x_pos[1] = x_pos[numBoxes];
+			x_pos2[1] = x_pos2[numBoxes];
+			y_pos[1] = y_pos[0] - BOX_H; 
+			boxThreshold = 2;
+			/* remember last box that was falling */
+			if(!firstRound) {
+				boxThreshold = 3;
+				x_pos[2] = x_pos[numBoxes+1];
+				x_pos2[2] = x_pos2[numBoxes+1];
+				y_pos[2] = y_pos[1] - BOX_H - 40;    
+			}
 			
-		 
-		x_pos[0] = x_pos[numBoxes-1];
-		x_pos2[0] = x_pos2[numBoxes-1];
-		y_pos[0] = RESOLUTION_Y - BOX_H; 
-		x_pos[1] = x_pos[numBoxes];
-		x_pos2[1] = x_pos2[numBoxes];
-		y_pos[1] = y_pos[0] - BOX_H; 
-		boxThreshold = 2;
-		if(!firstRound) {
-			boxThreshold = 3;
-			x_pos[2] = x_pos[numBoxes+1];
-			x_pos2[2] = x_pos2[numBoxes+1];
-			y_pos[2] = y_pos[1] - BOX_H - 40;    
+			/* reset other boxes */
+			for(int j = boxThreshold; j < MAX_BOXES; j++){
+				x_pos[j] = rand() % (x_pos[0] + BOX_LEN + 40 + 1 - (x_pos[0] - 40))  +  x_pos[0] - 40;
+				x_pos2[j] = 0; 
+				y_pos[j] = 0; 
+			}
+			firstRound = 0;
+			if(!firstRound) 
+				score--;
+			i = 0; 
+			num_boxes = 2;
+			
+			last_line = RESOLUTION_Y - BOX_H; 
+			
+			clear_screen();
+			draw_boxes(x_pos[0], x_pos2[0], y_pos[0], FALSE);			
+			wait_for_vsync(); // swap front and back buffers on VGA vertical sync
+			pixel_buffer_start = *(pixel_ctrl_ptr + 1); // new back buffer
 		}
-
-		for(int j = boxThreshold; j < MAX_BOXES; j++){
-			x_pos[j] = rand() % (x_pos[0] + BOX_LEN + 40 + 1 - (x_pos[0] - 40))  +  x_pos[0] - 40;
-			x_pos2[j] = 0; 
-			y_pos[j] = 0; 
-		}
-		firstRound = 0;
-		if(!firstRound) 
-			score--;
-		i = 0; 
-		   num_boxes = 2;
-		last_line = RESOLUTION_Y - BOX_H; 
-		clear_screen();
-		draw_boxes(x_pos[0], x_pos2[0], y_pos[0], FALSE);			
-		wait_for_vsync(); // swap front and back buffers on VGA vertical sync
-		pixel_buffer_start = *(pixel_ctrl_ptr + 1); // new back buffer
-	}
+		/*increment to next iteration */
 		i++;
 		last_line = y_pos[i-1] - BOX_H;
+		
+		/* if player misses the last box completely, reset game */
 		if(done){
 			firstRound = 1; 
 			display_game_over(); 
 			wait_for_vsync(); // swap front and back buffers on VGA vertical sync
 			pixel_buffer_start = *(pixel_ctrl_ptr + 1); // new back buffer
+			
+			/* reset variables */
 			firstIt = true;
 			BOX_LEN = 40;
 			frequency = 60;
@@ -313,6 +332,7 @@ int main(void){
 		}
 	}
 }
+/* count down the VGA to synchronize buffers */
 void wait_for_vsync() {
 	volatile int * pixel_ctrl_ptr = (int *) 0xFF203020; // pixel controller
 	register int status;
@@ -324,6 +344,7 @@ void wait_for_vsync() {
     	status = *(pixel_ctrl_ptr + 3);
 	}
 }
+/* display home screen */
 void display_home(){
 	for(int x = 0; x < RESOLUTION_X; x++){
         for(int y = 0; y < RESOLUTION_Y; y++){
@@ -331,6 +352,17 @@ void display_home(){
         }
     }
 }
+/* polling to start game */
+void start_game() {
+	do{
+		ps2Input = *ps2_ptr;
+		ps2Key = ps2Input & 0xFF;
+	}while(ps2Key != 0x29); // space bar hex is 0x29
+	
+	return 0;
+}
+
+/* display game over screen */
 void display_game_over(){
 	for(int x = 0; x < RESOLUTION_X; x++){
         for(int y = 0; y < RESOLUTION_Y; y++){
@@ -338,7 +370,7 @@ void display_game_over(){
         }
     }
 }
-//Clear screen
+/* clear screen to background */
 void clear_screen(){
     if(firstRound){
 		for(int x = 0; x < RESOLUTION_X; x++){
@@ -355,7 +387,7 @@ void clear_screen(){
     	}
 	}
 }
-
+/* draw boxes */
 void draw_boxes(int x1, int x2, int y1, int erase){
 	if(firstRound){
 		for(int x = x1; x <= x2; x++){
