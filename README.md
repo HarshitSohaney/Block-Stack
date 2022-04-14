@@ -16,7 +16,7 @@ The game is implemented using lowlevel C and can be played on a VGA display.
 ![ezgif com-gif-maker](https://user-images.githubusercontent.com/52717128/163480458-08ffc5a5-b4c6-4f61-bc8f-ee330c3237ff.gif)
 
 ## How to Run Game: 
-
+### Option 1: On computer
 1. Open https://cpulator.01xz.net/ 
 2. Select the following options and press go
 
@@ -24,3 +24,9 @@ The game is implemented using lowlevel C and can be played on a VGA display.
 
 3. Load in the c file named "cpulater_project" stored in the foloder src
 4. Press Compile, Load and Continue to run the game 
+
+### Option 2: On the DE1-SoC FPGA Board
+1. Load the files on the Quartus Monitor Program
+2. Create a new project and select the ARM Cortex-A9 
+3. After creating the files and setting up the program, hit compile & load
+4. Run the program and start the VGA
